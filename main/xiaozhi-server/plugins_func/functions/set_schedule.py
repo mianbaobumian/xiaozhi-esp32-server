@@ -42,9 +42,15 @@ def set_schedule(schedule_type: str, time: str):
     job_id = f"schedule_{schedule_type}"
     message = message_map.get(schedule_type, f"定时任务: {schedule_type}")
 
-    # 解析时间
-    parts = time.split(":")
-    hour, minute = int(parts[0]), int(parts[1]) if len(parts) > 1 else 0
+    # 解析和验证时间
+    try:
+        parts = time.split(":")
+        hour = int(parts[0])
+        minute = int(parts[1]) if len(parts) > 1 else 0
+        if not (0 <= hour <= 23 and 0 <= minute <= 59):
+            return ActionResponse(Action.REQLLM, f"无效时间格式: {time}，小时应为 0-23，分钟应为 0-59", None)
+    except (ValueError, IndexError):
+        return ActionResponse(Action.REQLLM, f"无效时间格式: {time}，请使用 HH:MM 格式（如 08:30）", None)
 
     # 添加 cron 任务（每天执行）
     cron_expr = f"{minute} {hour} * * *"
