@@ -186,3 +186,20 @@ def merge_configs(default_config, custom_config):
             merged[key] = value
 
     return merged
+
+
+def load_backends_config():
+    """加载 backends.yaml 配置"""
+    from core.utils.cache.manager import cache_manager, CacheType
+
+    cached = cache_manager.get(CacheType.CONFIG, "backends_config")
+    if cached is not None:
+        return cached
+
+    backends_path = os.path.join(get_project_dir(), "workspace", "backends.yaml")
+    if not os.path.exists(backends_path):
+        return {}
+
+    config = read_config(backends_path)
+    cache_manager.set(CacheType.CONFIG, "backends_config", config)
+    return config
