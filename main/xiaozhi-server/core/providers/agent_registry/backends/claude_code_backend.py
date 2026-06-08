@@ -24,7 +24,11 @@ class ClaudeCodeBackend(BaseBackend):
             mcp_config = {
                 "command": command,
                 "args": args,
-                "env": {**os.environ, "CLAUDE_WORKSPACE": self.config.get("workspace", "")},
+                "env": {
+                    "PATH": os.environ.get("PATH", ""),
+                    "HOME": os.environ.get("HOME", os.environ.get("USERPROFILE", "")),
+                    "CLAUDE_WORKSPACE": self.config.get("workspace", ""),
+                },
             }
 
             self.client = ServerMCPClient(mcp_config)

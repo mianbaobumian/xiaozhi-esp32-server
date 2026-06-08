@@ -92,3 +92,12 @@ class AgentProxy:
         for name in self.registry.get_all_agents():
             results.append(await self.check_health(name))
         return results
+
+    async def shutdown(self):
+        """关闭所有后端连接"""
+        for backend_type, backend in _backend_instances.items():
+            try:
+                await backend.disconnect()
+            except Exception as e:
+                logger.bind(tag=TAG).warning(f"关闭后端 {backend_type} 失败: {e}")
+        _backend_instances.clear()

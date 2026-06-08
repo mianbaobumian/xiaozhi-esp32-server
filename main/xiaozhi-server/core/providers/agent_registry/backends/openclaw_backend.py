@@ -36,7 +36,7 @@ class OpenClawBackend(BaseBackend):
 
     async def execute_task(self, agent_config: dict, task: str) -> str:
         """通过 OpenClaw 执行任务"""
-        if not self._client:
+        if not self._connected:
             return "[OpenClaw] 未连接"
 
         try:

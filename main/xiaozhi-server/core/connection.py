@@ -548,7 +548,6 @@ class ConnectionHandler:
                 self.agent_registry.scan_workspace()
                 self.agent_proxy = AgentProxy(self.agent_registry, backends_config)
                 # 初始化后端连接
-                import asyncio
                 asyncio.run_coroutine_threadsafe(
                     self.agent_proxy.initialize_backends(), self.loop
                 )
@@ -1463,6 +1462,16 @@ class ConnectionHandler:
                     self.logger.bind(tag=TAG).error(
                         f"清理工具处理器时出错: {cleanup_error}"
                     )
+
+            # 关闭后端连接
+            if self.agent_proxy:
+                future = asyncio.run_coroutine_threadsafe(
+                    self.agent_proxy.shutdown(), self.loop
+                )
+                try:
+                    future.result(timeout=5)
+                except Exception:
+                    pass
 
             # 触发停止事件
             if self.stop_event:
