@@ -42,8 +42,8 @@ sync_to_gitea_desc = {
 }
 
 
-@register_function("sync_to_gitea", sync_to_gitea_desc, ToolType.WAIT)
-def sync_to_gitea(action: str, title: str = "", body: str = "",
+@register_function("sync_to_gitea", sync_to_gitea_desc, ToolType.SYSTEM_CTL)
+def sync_to_gitea(conn, action: str, title: str = "", body: str = "",
                   issue_number: int = None, labels: list = None, state: str = None):
     import asyncio
     from config.config_loader import load_backends_config
@@ -97,10 +97,7 @@ def sync_to_gitea(action: str, title: str = "", body: str = "",
         finally:
             await client.close()
 
-    try:
-        loop = asyncio.get_event_loop()
-        result = loop.run_until_complete(_run())
-    except RuntimeError:
-        result = asyncio.run(_run())
-
+    import asyncio
+    future = asyncio.run_coroutine_threadsafe(_run(), conn.loop)
+    result = future.result()
     return ActionResponse(Action.REQLLM, result, None)
