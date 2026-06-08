@@ -99,6 +99,12 @@ class ConnectionHandler:
 
         self.read_config_from_api = self.config.get("read_config_from_api", False)
 
+        # 新模块引用
+        self.scheduler_manager = None
+        self.broadcast_manager = None
+        self.agent_registry = None
+        self.agent_proxy = None
+
         self.websocket: websockets.ServerConnection | None = None
         self.headers = None
         self.device_id = None
@@ -528,6 +534,36 @@ class ConnectionHandler:
             self._init_prompt_enhancement()
             """注入工具调用few-shot示例（仅function_call模式）"""
             self._inject_tool_call_fewshot()
+
+            # 初始化 CEO Agent 相关模块
+            try:
+                from config.config_loader import load_backends_config
+                backends_config = load_backends_config()
+                workspace_path = backends_config.get("workspace_path", "./workspace")
+
+                # Agent Registry
+                from core.providers.agent_registry.registry import AgentRegistry
+                from core.providers.agent_registry.agent_proxy import AgentProxy
+                self.agent_registry = AgentRegistry(workspace_path)
+                self.agent_registry.scan_workspace()
+                self.agent_proxy = AgentProxy(self.agent_registry, backends_config)
+
+                # Scheduler
+                from core.providers.scheduler.scheduler_manager import SchedulerManager
+                from core.providers.scheduler.reminder_store import ReminderStore
+                self.scheduler_manager = SchedulerManager()
+                reminder_store = ReminderStore()
+                active_reminders = reminder_store.get_all_active()
+                self.scheduler_manager.restore_jobs(active_reminders)
+
+                # Broadcast
+                from core.providers.broadcast.broadcast_manager import BroadcastManager
+                self.broadcast_manager = BroadcastManager(self)
+                self.broadcast_manager.start()
+
+                self.logger.bind(tag=TAG).info("CEO Agent 模块初始化完成")
+            except Exception as e:
+                self.logger.bind(tag=TAG).error(f"CEO Agent 模块初始化失败: {e}")
 
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"实例化组件失败: {e}")

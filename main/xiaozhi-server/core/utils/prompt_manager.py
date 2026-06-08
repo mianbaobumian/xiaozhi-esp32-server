@@ -220,6 +220,26 @@ class PromptManager:
 
             self.logger.bind(tag=TAG).debug(f"上下文信息更新完成")
 
+            # 注入 Agent 列表
+            try:
+                from config.config_loader import load_backends_config
+                backends_config = load_backends_config()
+                ws_path = backends_config.get("workspace_path", "./workspace")
+                from core.providers.agent_registry.registry import AgentRegistry
+                registry = AgentRegistry(ws_path)
+                registry.scan_workspace()
+                agent_list = registry.get_agent_list()
+                if agent_list:
+                    agent_info = "\n可用 Agent:\n"
+                    for a in agent_list:
+                        agent_info += f"- {a['name']}: {a['description']}\n"
+                    if isinstance(self.context_data, dict):
+                        self.context_data["agent_list"] = agent_info
+                    else:
+                        self.context_data = agent_info
+            except Exception as e:
+                self.logger.bind(tag=TAG).debug(f"注入 Agent 列表失败: {e}")
+
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"更新上下文信息失败: {e}")
 
