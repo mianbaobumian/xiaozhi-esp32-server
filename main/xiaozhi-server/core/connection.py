@@ -547,6 +547,11 @@ class ConnectionHandler:
                 self.agent_registry = AgentRegistry(workspace_path)
                 self.agent_registry.scan_workspace()
                 self.agent_proxy = AgentProxy(self.agent_registry, backends_config)
+                # 初始化后端连接
+                import asyncio
+                asyncio.run_coroutine_threadsafe(
+                    self.agent_proxy.initialize_backends(), self.loop
+                )
 
                 # Scheduler
                 from core.providers.scheduler.scheduler_manager import SchedulerManager
