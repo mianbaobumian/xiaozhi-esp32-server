@@ -1,0 +1,10 @@
+name: Broadcast
+description: 专职 TTS 播报
+backend: local
+enabled: true
+redis_channel: "broadcast:notify"
+redis_db: 3
+priority_levels:
+  high: immediate
+  normal: queue
+  low: idle

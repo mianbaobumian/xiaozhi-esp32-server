@@ -1,0 +1,35 @@
+workspace_path: ./workspace
+
+mysql:
+  host: localhost
+  port: 3306
+  database: xiaozhi_agent
+  user: root
+  password: ""
+
+redis:
+  host: localhost
+  port: 6379
+  db: 3
+  password: null
+
+gitea:
+  url: http://192.168.31.179:8418
+  repo: ""
+  token: ""
+
+multica:
+  url: http://192.168.31.179:18080
+  api_key: ""
+  project: ""
+
+claude_code:
+  type: mcp
+  command: claude
+  args: ["mcp", "serve"]
+
+openclaw:
+  type: http
+  url: http://192.168.31.179:18789
+  workspace: /home/dapao/.openclaw
+  role: assistant

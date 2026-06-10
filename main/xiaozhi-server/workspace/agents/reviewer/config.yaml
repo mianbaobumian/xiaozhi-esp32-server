@@ -1,0 +1,6 @@
+name: reviewer
+description: 代码审查、质量检查
+backend: multica
+backend_id: ""
+model: null
+enabled: true
