@@ -5,7 +5,7 @@ mysql:
   port: 3306
   database: xiaozhi_agent
   user: root
-  password: ""
+  password: Z123456z
 
 redis:
   host: localhost
