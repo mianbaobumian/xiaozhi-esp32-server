@@ -121,7 +121,8 @@ MiMo provider 只需实现 `text_to_speak()`，其余由基类处理。
   "model": "mimo-v2.5-tts",
   "voice": "冰糖",
   "format": "wav",
-  "style": ""
+  "style": "",
+  "voice_clone_audio": ""
 }
 ```
 
@@ -137,6 +138,7 @@ MiMo provider 只需实现 `text_to_speak()`，其余由基类处理。
 | voice | string | 冰糖 | 预置音色 ID |
 | format | string | wav | 音频格式（非流式用 wav） |
 | style | string | (空) | 风格指令，放 role: user 消息 |
+| voice_clone_audio | string | (空) | 克隆参考音频文件路径，非空时自动启用 voiceclone 模式 |
 
 ### 5.3 模型选项
 
@@ -192,7 +194,40 @@ style: ""  # 空 = 不传 user 消息，使用默认风格
 
 音频标签直接写在 `role: assistant` 的文本中，MiMo 会自动识别。
 
-## 7. 错误处理
+## 7. 音色克隆
+
+### 7.1 配置驱动
+
+通过 `voice_clone_audio` 配置字段指定参考音频文件路径。非空时自动切换到 voiceclone 模式：
+
+```
+voice_clone_audio 非空:
+  → model 强制为 "mimo-v2.5-tts-voiceclone"
+  → 读取音频文件 → base64 编码 → 构造 data URI
+  → voice = "data:{mime};base64,{b64}"
+
+voice_clone_audio 为空:
+  → model 保持用户配置
+  → voice 使用预置音色 ID
+```
+
+### 7.2 MIME 类型判断
+
+根据文件扩展名自动判断：
+
+| 扩展名 | MIME 类型 |
+|--------|-----------|
+| .mp3 | audio/mpeg |
+| .wav | audio/wav |
+| 其他 | audio/wav（默认） |
+
+### 7.3 约束
+
+- 参考音频 base64 后不超过 10MB
+- 仅支持 mp3/wav 格式
+- 设置 voice_clone_audio 后，voice 配置字段被忽略
+
+## 8. 错误处理
 
 | 场景 | 处理方式 |
 |------|----------|
@@ -202,7 +237,7 @@ style: ""  # 空 = 不传 user 消息，使用默认风格
 | api_key 为空 | check_model_key() 在 __init__ 时告警 |
 | 网络超时 | requests 默认超时，基类重试 |
 
-## 8. 约束
+## 9. 约束
 
 - 当前仅实现非流式（wav），MiMo 流式为兼容模式暂不支持
 - 音色克隆的 base64 音频不超过 10MB
