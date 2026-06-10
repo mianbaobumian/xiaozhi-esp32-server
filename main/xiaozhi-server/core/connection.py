@@ -789,6 +789,13 @@ class ConnectionHandler:
             ]["Memory"]
         if private_config.get("Intent", None) is not None:
             init_intent = True
+            # 保存本地配置中的 functions（在覆盖之前）
+            # 从 self.config["Intent"] 中获取所有 functions
+            saved_local_functions = []
+            for intent_config in self.config.get("Intent", {}).values():
+                if isinstance(intent_config, dict) and "functions" in intent_config:
+                    saved_local_functions.extend(intent_config["functions"])
+
             self.config["Intent"] = private_config["Intent"]
             model_intent = private_config.get("selected_module", {}).get("Intent", {})
             self.config["selected_module"]["Intent"] = model_intent
@@ -798,9 +805,13 @@ class ConnectionHandler:
                 for plugin, config_str in plugin_from_server.items():
                     plugin_from_server[plugin] = json.loads(config_str)
                 self.config["plugins"] = plugin_from_server
+                # 合并 functions：保留本地配置中的 agent 函数，加上 API 返回的 plugins
+                api_functions = list(plugin_from_server.keys())
+                # 合并去重
+                all_functions = list(set(saved_local_functions + api_functions))
                 self.config["Intent"][self.config["selected_module"]["Intent"]][
                     "functions"
-                ] = plugin_from_server.keys()
+                ] = all_functions
         if private_config.get("prompt", None) is not None:
             self.config["prompt"] = private_config["prompt"]
         # 获取声纹信息

@@ -53,9 +53,10 @@ class ClaudeCodeBackend(BaseBackend):
             return "[Claude Code] 未连接"
 
         try:
-            result = await self.client.call_tool("delegate_task", {
-                "task": task,
-                "agent": agent_config.get("name", ""),
+            # 使用 Agent 工具执行任务
+            result = await self.client.call_tool("Agent", {
+                "description": f"执行 {agent_config.get('name', '')} agent 的任务",
+                "prompt": task,
             })
             logger.bind(tag=TAG).info(f"Claude Code 任务执行完成: {task[:50]}")
             return f"[Claude Code] {result}"

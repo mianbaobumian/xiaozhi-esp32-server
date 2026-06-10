@@ -91,6 +91,19 @@ async def get_config_from_api_async(config):
     # 如果服务器没有prompt_template，则从本地配置读取
     if not config_data.get("prompt_template"):
         config_data["prompt_template"] = config.get("prompt_template")
+
+    # 合并本地 Intent 配置（本地优先）
+    if config.get("Intent"):
+        if "Intent" not in config_data:
+            config_data["Intent"] = {}
+        for intent_key, intent_value in config["Intent"].items():
+            if intent_key in config_data["Intent"]:
+                # 合并 functions 列表
+                if "functions" in intent_value:
+                    config_data["Intent"][intent_key]["functions"] = intent_value["functions"]
+            else:
+                config_data["Intent"][intent_key] = intent_value
+
     return config_data
 
 
