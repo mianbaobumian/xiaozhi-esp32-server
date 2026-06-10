@@ -1,5 +1,6 @@
 # main/xiaozhi-server/core/providers/tts/mimo.py
 """MiMo-V2.5-TTS 语音合成 Provider"""
+import os
 import base64
 import requests
 from core.utils.util import check_model_key
@@ -27,6 +28,12 @@ class TTSProvider(TTSProviderBase):
         self.audio_file_type = config.get("format", "wav")
         self.style = config.get("style", "")
 
+        # 音色克隆：非空时自动切换到 voiceclone 模式
+        self.voice_clone_audio = config.get("voice_clone_audio", "")
+        if self.voice_clone_audio and os.path.exists(self.voice_clone_audio):
+            self.model = "mimo-v2.5-tts-voiceclone"
+            logger.bind(tag=TAG).info(f"启用音色克隆模式, 参考音频: {self.voice_clone_audio}")
+
         speed = config.get("speed", "1.0")
         self.speed = float(speed) if speed else 1.0
 
@@ -48,12 +55,21 @@ class TTSProvider(TTSProviderBase):
             messages.append({"role": "user", "content": self.style})
         messages.append({"role": "assistant", "content": text})
 
+        # 音色克隆：读取参考音频并构造 data URI
+        voice = self.voice
+        if self.voice_clone_audio and os.path.exists(self.voice_clone_audio):
+            with open(self.voice_clone_audio, "rb") as f:
+                clone_b64 = base64.b64encode(f.read()).decode()
+            ext = os.path.splitext(self.voice_clone_audio)[1].lower()
+            mime = "audio/mpeg" if ext == ".mp3" else "audio/wav"
+            voice = f"data:{mime};base64,{clone_b64}"
+
         data = {
             "model": self.model,
             "messages": messages,
             "audio": {
                 "format": self.audio_file_type,
-                "voice": self.voice,
+                "voice": voice,
             },
         }
 
