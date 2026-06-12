@@ -32,6 +32,7 @@ dispatch_to_agent_desc = {
 @register_function("dispatch_to_agent", dispatch_to_agent_desc, ToolType.SYSTEM_CTL)
 def dispatch_to_agent(conn, agent_name: str, task: str):
     """分发任务给指定 agent"""
+    future = None
     try:
         if not hasattr(conn, 'agent_proxy') or not conn.agent_proxy:
             return ActionResponse(Action.REQLLM, "Agent 代理未初始化", None)
@@ -42,10 +43,18 @@ def dispatch_to_agent(conn, agent_name: str, task: str):
         future = asyncio.run_coroutine_threadsafe(
             conn.agent_proxy.dispatch(agent_name, task), loop
         )
-        result = future.result(timeout=120)  # 2分钟超时
+        result = future.result(timeout=310)  # 比 CLI 超时多 10 秒
 
         logger.bind(tag=TAG).info(f"任务已完成 {agent_name}: {result[:100] if result else 'None'}")
         return ActionResponse(Action.REQLLM, f"{agent_name} agent 返回结果: {result}", None)
+    except asyncio.TimeoutError:
+        if future:
+            future.cancel()
+        logger.bind(tag=TAG).error(f"分发任务超时: {agent_name}")
+        return ActionResponse(Action.REQLLM, f"分发任务给 {agent_name} 超时", None)
+    except asyncio.CancelledError:
+        logger.bind(tag=TAG).warning(f"分发任务被取消: {agent_name}（可能连接已关闭）")
+        return ActionResponse(Action.REQLLM, f"任务被取消: {agent_name}", None)
     except Exception as e:
         logger.bind(tag=TAG).error(f"分发任务失败: {type(e).__name__}: {e}")
         return ActionResponse(Action.REQLLM, f"分发任务给 {agent_name} 失败: {type(e).__name__}: {e}", None)

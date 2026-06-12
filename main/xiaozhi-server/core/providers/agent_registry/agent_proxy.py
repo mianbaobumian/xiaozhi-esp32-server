@@ -1,4 +1,5 @@
 """统一的 agent 调用代理，根据 backend 类型路由到不同后端适配器"""
+import asyncio
 from config.logger import setup_logging
 
 TAG = __name__
@@ -49,26 +50,30 @@ class AgentProxy:
 
     async def dispatch(self, agent_name: str, task: str) -> str:
         """分发任务到指定 agent"""
-        agent = self.registry.get_agent(agent_name)
-        if not agent:
-            return f"Agent '{agent_name}' 不存在"
+        try:
+            agent = self.registry.get_agent(agent_name)
+            if not agent:
+                return f"Agent '{agent_name}' 不存在"
 
-        backend_type = agent.get("backend", "local")
-        logger.bind(tag=TAG).info(f"分发任务到 {agent_name}, backend: {backend_type}")
+            backend_type = agent.get("backend", "local")
+            logger.bind(tag=TAG).info(f"分发任务到 {agent_name}, backend: {backend_type}")
 
-        if backend_type == "local":
-            return f"[Local] 任务已执行: {task}"
+            if backend_type == "local":
+                return f"[Local] 任务已执行: {task}"
 
-        backend = _get_backend(backend_type, self.config)
-        if not backend:
-            return f"后端 '{backend_type}' 未配置"
+            backend = _get_backend(backend_type, self.config)
+            if not backend:
+                return f"后端 '{backend_type}' 未配置"
 
-        if not backend.is_connected:
-            connected = await backend.connect()
-            if not connected:
-                return f"后端 '{backend_type}' 连接失败"
+            if not backend.is_connected:
+                connected = await backend.connect()
+                if not connected:
+                    return f"后端 '{backend_type}' 连接失败"
 
-        return await backend.execute_task(agent, task)
+            return await backend.execute_task(agent, task)
+        except asyncio.CancelledError:
+            logger.bind(tag=TAG).warning(f"dispatch 被取消: {agent_name}")
+            return f"任务被取消: {agent_name}"
 
     async def check_health(self, agent_name: str) -> dict:
         """检查 agent 健康状态"""
@@ -92,6 +97,21 @@ class AgentProxy:
         for name in self.registry.get_all_agents():
             results.append(await self.check_health(name))
         return results
+
+    async def reset_session(self, agent_name: str) -> str:
+        """重置 agent 会话（生成摘要 + 清除 session）"""
+        agent = self.registry.get_agent(agent_name)
+        if not agent:
+            return f"Agent '{agent_name}' 不存在"
+
+        backend_type = agent.get("backend", "local")
+        backend = _get_backend(backend_type, self.config)
+        if not backend:
+            return f"后端 '{backend_type}' 未配置"
+
+        if hasattr(backend, 'reset_session'):
+            return await backend.reset_session(agent_name)
+        return f"后端 '{backend_type}' 不支持会话重置"
 
     async def shutdown(self):
         """关闭所有后端连接"""

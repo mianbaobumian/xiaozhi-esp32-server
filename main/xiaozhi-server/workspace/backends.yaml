@@ -1,14 +1,14 @@
 workspace_path: ./workspace
 
 mysql:
-  host: localhost
+  host: 192.168.31.179
   port: 3306
   database: xiaozhi_agent
   user: root
   password: Z123456z
 
 redis:
-  host: localhost
+  host: 192.168.31.179
   port: 6379
   db: 3
   password: null

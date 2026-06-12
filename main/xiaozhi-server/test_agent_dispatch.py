@@ -105,14 +105,14 @@ async def test_health_check(proxy):
 # ── 测试 5: 模拟语音 "让CEO帮我xxx" ──
 async def test_dispatch(proxy):
     print("\n" + "=" * 50)
-    print('测试 5: 模拟语音 "让CEO帮我用一句话介绍你自己"')
+    print('测试 5: 模拟语音 "让ceo去调研下豆瓣电影top250中前top5的电影分别是什么"')
     print("=" * 50)
     from plugins_func.functions.dispatch_to_agent import dispatch_to_agent
     conn = MockConn(proxy, asyncio.get_event_loop())
     try:
         result = await asyncio.wait_for(
             asyncio.get_event_loop().run_in_executor(
-                None, lambda: dispatch_to_agent(conn, "ceo", "用一句话介绍你自己")
+                None, lambda: dispatch_to_agent(conn, "ceo", "去调研下豆瓣电影top250中前top5的电影分别是什么")
             ),
             timeout=120,
         )
