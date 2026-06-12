@@ -40,10 +40,10 @@ class BroadcastManager:
     def _process_pending_messages(self):
         sql = """
             SELECT * FROM broadcast_queue
-            WHERE status = 'pending'
+            WHERE status = 'pending' AND is_deleted = 0
             ORDER BY
                 CASE priority WHEN 'high' THEN 1 WHEN 'normal' THEN 2 WHEN 'low' THEN 3 END,
-                created_at
+                created_time
             LIMIT 10
         """
         messages = execute_query(sql)
@@ -51,13 +51,13 @@ class BroadcastManager:
             success = self._deliver_message(msg)
             if success:
                 execute_update(
-                    "UPDATE broadcast_queue SET status = 'delivered', delivered_at = %s WHERE id = %s",
-                    (datetime.now(), msg["id"]),
+                    "UPDATE broadcast_queue SET status = 'delivered', delivered_at = %s, updated_time = %s WHERE id = %s",
+                    (datetime.now(), datetime.now().date(), msg["id"]),
                 )
             else:
                 execute_update(
-                    "UPDATE broadcast_queue SET retry_count = retry_count + 1 WHERE id = %s",
-                    (msg["id"],),
+                    "UPDATE broadcast_queue SET retry_count = retry_count + 1, updated_time = %s WHERE id = %s",
+                    (datetime.now().date(), msg["id"]),
                 )
 
     def _deliver_message(self, msg: dict) -> bool:
@@ -81,10 +81,10 @@ class BroadcastManager:
 
     def enqueue(self, source: str, priority: str, content: str):
         sql = """
-            INSERT INTO broadcast_queue (source, priority, content, status, created_at)
+            INSERT INTO broadcast_queue (source, priority, content, status, created_time)
             VALUES (%s, %s, %s, 'pending', %s)
         """
-        execute_update(sql, (source, priority, content, datetime.now()))
+        execute_update(sql, (source, priority, content, datetime.now().date()))
         redis_client = get_redis_client()
         redis_client.publish("broadcast:notify", json.dumps({"source": source}))
         logger.bind(tag=TAG).info(f"消息入队: source={source}, priority={priority}")
