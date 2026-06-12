@@ -112,7 +112,7 @@ async def test_dispatch_first(proxy):
     try:
         result = await asyncio.wait_for(
             asyncio.get_event_loop().run_in_executor(
-                None, lambda: dispatch_to_agent(conn, "ceo", "用一句话介绍你自己")
+                None, lambda: dispatch_to_agent(conn, "ceo", "热力学定律是什么")
             ),
             timeout=310,
         )
