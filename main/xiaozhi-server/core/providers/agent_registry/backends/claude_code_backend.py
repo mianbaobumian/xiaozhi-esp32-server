@@ -37,8 +37,12 @@ class ClaudeCodeBackend(BaseBackend):
             self.client = ServerMCPClient(mcp_config)
             await self.client.initialize()
             self.tools = list(self.client.tools_dict.values())
-            self._connected = True
 
+            if not self.tools:
+                logger.bind(tag=TAG).error("Claude Code 连接失败: 未发现任何工具，MCP子进程可能启动失败")
+                return False
+
+            self._connected = True
             logger.bind(tag=TAG).info(f"Claude Code 连接成功, 发现 {len(self.tools)} 个工具")
             return True
         except Exception as e:
@@ -92,20 +96,32 @@ class ClaudeCodeBackend(BaseBackend):
             return await self._execute_via_cli(agent_config, task)
 
         try:
+            logger.bind(tag=TAG).info(f"Claude Code 开始执行任务: {task[:80]}")
             result = await self.client.call_tool("Agent", {
                 "description": f"执行 {agent_config.get('name', '')} agent 的任务",
                 "prompt": task,
+                "subagent_type": "claude",
             })
+            # 提取并记录返回内容
+            result_text = ""
+            if hasattr(result, 'content') and result.content:
+                for item in result.content:
+                    if hasattr(item, 'text'):
+                        result_text += item.text
+                        logger.bind(tag=TAG).info(f"[Agent 输出] {item.text[:200]}")
+            else:
+                result_text = str(result)
+
             # 检查 MCP 返回的错误
             if hasattr(result, 'isError') and result.isError:
-                error_text = str(result)
+                error_text = result_text or str(result)
                 if "not found" in error_text.lower() or "available agents" in error_text.lower():
                     logger.bind(tag=TAG).warning("MCP Agent 工具不可用，切换到 CLI 模式")
                     self._use_cli_fallback = True
                     return await self._execute_via_cli(agent_config, task)
-                return f"[Claude Code] {result}"
+                return f"[Claude Code] {error_text}"
             logger.bind(tag=TAG).info(f"Claude Code 任务执行完成: {task[:50]}")
-            return f"[Claude Code] {result}"
+            return f"[Claude Code] {result_text}"
         except Exception as e:
             error_msg = str(e)
             if "not found" in error_msg.lower():

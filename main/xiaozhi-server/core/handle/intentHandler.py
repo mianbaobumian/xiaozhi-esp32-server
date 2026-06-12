@@ -159,6 +159,11 @@ async def process_intent_result(
                 
                 # 工具调用超时时间
                 tool_call_timeout = int(conn.config.get("tool_call_timeout", 30))
+                # 部分工具需要更长的超时时间（如 agent 调度）
+                _tool_timeout_overrides = {
+                    "dispatch_to_agent": 120,
+                }
+                timeout = _tool_timeout_overrides.get(function_name, tool_call_timeout)
                 # 使用统一工具处理器处理所有工具调用
                 try:
                     result = asyncio.run_coroutine_threadsafe(
@@ -166,7 +171,7 @@ async def process_intent_result(
                             conn, function_call_data
                         ),
                         conn.loop,
-                    ).result(timeout=tool_call_timeout)
+                    ).result(timeout=timeout)
                 except Exception as e:
                     conn.logger.bind(tag=TAG).error(f"工具调用失败: {e}")
                     result = ActionResponse(

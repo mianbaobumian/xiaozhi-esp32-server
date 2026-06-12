@@ -38,13 +38,14 @@ def dispatch_to_agent(conn, agent_name: str, task: str):
 
         # 调用异步 dispatch 方法
         loop = conn.loop
+        logger.bind(tag=TAG).info(f"开始分发任务给 {agent_name}: {task[:80]}")
         future = asyncio.run_coroutine_threadsafe(
             conn.agent_proxy.dispatch(agent_name, task), loop
         )
         result = future.result(timeout=120)  # 2分钟超时
 
-        logger.bind(tag=TAG).info(f"任务已分发给 {agent_name}: {task[:50]}")
-        return ActionResponse(Action.REQLLM, f"CEO agent 返回结果: {result}", None)
+        logger.bind(tag=TAG).info(f"任务已完成 {agent_name}: {result[:100] if result else 'None'}")
+        return ActionResponse(Action.REQLLM, f"{agent_name} agent 返回结果: {result}", None)
     except Exception as e:
-        logger.bind(tag=TAG).error(f"分发任务失败: {e}")
-        return ActionResponse(Action.REQLLM, f"分发任务失败: {e}", None)
+        logger.bind(tag=TAG).error(f"分发任务失败: {type(e).__name__}: {e}")
+        return ActionResponse(Action.REQLLM, f"分发任务给 {agent_name} 失败: {type(e).__name__}: {e}", None)
