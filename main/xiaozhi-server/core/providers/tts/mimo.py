@@ -74,6 +74,7 @@ class TTSProvider(TTSProviderBase):
         }
 
         api_url = f"{self.base_url}/chat/completions"
+        logger.bind(tag=TAG).info(f"MiMo TTS请求: url={api_url}, api_key={self.api_key[:8]}***, data={data}")
         response = requests.post(api_url, json=data, headers=headers)
 
         if response.status_code != 200:

@@ -19,7 +19,20 @@ class ClaudeCodeBackend(BaseBackend):
         self.tools = []
 
     async def connect(self) -> bool:
-        """通过 MCP stdio 连接 Claude Code（用于工具发现和健康检查）"""
+        """验证 claude CLI 可用（懒连接，不启动 MCP 子进程）"""
+        cmd = shutil.which(self.config.get("command", "claude"))
+        if not cmd:
+            logger.bind(tag=TAG).error("claude CLI 未找到，请确认已安装并在 PATH 中")
+            return False
+
+        self._connected = True
+        logger.bind(tag=TAG).info("Claude Code 后端就绪（懒连接，任务执行时启动 CLI）")
+        return True
+
+    async def _ensure_mcp(self):
+        """按需建立 MCP 连接（仅用于工具发现/健康检查）"""
+        if self.client:
+            return True
         try:
             from core.providers.tools.server_mcp.mcp_client import ServerMCPClient
 
@@ -39,22 +52,17 @@ class ClaudeCodeBackend(BaseBackend):
             self.client = ServerMCPClient(mcp_config)
             await self.client.initialize()
             self.tools = list(self.client.tools_dict.values())
-
-            if not self.tools:
-                logger.bind(tag=TAG).error("Claude Code 连接失败: 未发现任何工具，MCP子进程可能启动失败")
-                return False
-
-            self._connected = True
-            logger.bind(tag=TAG).info(f"Claude Code 连接成功, 发现 {len(self.tools)} 个工具")
+            logger.bind(tag=TAG).info(f"MCP 连接成功, 发现 {len(self.tools)} 个工具")
             return True
         except Exception as e:
-            logger.bind(tag=TAG).error(f"Claude Code 连接失败: {e}")
+            logger.bind(tag=TAG).warning(f"MCP 连接失败: {e}")
             return False
 
     async def disconnect(self):
         if self.client:
             await self.client.cleanup()
-            self._connected = False
+            self.client = None
+        self._connected = False
 
     # ── 会话持久化 ──
 
@@ -131,6 +139,24 @@ class ClaudeCodeBackend(BaseBackend):
         except Exception as e:
             logger.bind(tag=TAG).warning(f"MySQL 摘要写入失败: {e}")
 
+    def _clear_session(self, agent_name: str):
+        """清除 Redis + MySQL 中的 session"""
+        redis_key = f"agent:session:{agent_name}"
+        try:
+            from core.utils.db_manager import get_redis_client
+            r = get_redis_client()
+            r.delete(redis_key)
+        except Exception as e:
+            logger.bind(tag=TAG).warning(f"Redis 删除失败: {e}")
+        try:
+            from core.utils.db_manager import execute_update
+            execute_update(
+                "DELETE FROM agent_sessions WHERE agent_name=%s",
+                (agent_name,)
+            )
+        except Exception as e:
+            logger.bind(tag=TAG).warning(f"MySQL 删除失败: {e}")
+
     async def _generate_summary(self, old_session_id: str) -> str:
         """用旧 session 提炼摘要"""
         cmd = shutil.which(self.config.get("command", "claude"))
@@ -162,8 +188,8 @@ class ClaudeCodeBackend(BaseBackend):
 
     # ── CLI 执行 ──
 
-    async def _run_cli(self, cmd: str, args: list, workspace: str, env: dict, timeout: int) -> str:
-        """执行 claude CLI 子进程"""
+    async def _run_cli(self, cmd: str, args: list, workspace: str, env: dict, timeout: int) -> tuple[int, str]:
+        """执行 claude CLI 子进程，返回 (returncode, output)"""
         try:
             proc = await asyncio.create_subprocess_exec(
                 cmd, *args,
@@ -177,13 +203,23 @@ class ClaudeCodeBackend(BaseBackend):
             if proc.returncode != 0:
                 err = stderr.decode("utf-8", errors="replace").strip()
                 logger.bind(tag=TAG).warning(f"Claude CLI 返回非零: {proc.returncode}, stderr: {err[:200]}")
-            return output if output else "[Claude Code] CLI 无输出"
+                return proc.returncode, err or output
+            return 0, output if output else "[Claude Code] CLI 无输出"
         except asyncio.TimeoutError:
             logger.bind(tag=TAG).error(f"Claude CLI 执行超时 ({timeout}秒)")
-            return f"[Claude Code] CLI 执行超时 ({timeout}秒)"
+            return -1, f"[Claude Code] CLI 执行超时 ({timeout}秒)"
         except Exception as e:
             logger.bind(tag=TAG).error(f"Claude CLI 执行异常: {e}")
-            return f"[Claude Code] CLI 执行失败: {e}"
+            return -1, f"[Claude Code] CLI 执行失败: {e}"
+
+    def _build_cli_args(self, prompt: str, session_id: str | None = None, resume_id: str | None = None) -> list:
+        """构造 CLI 参数"""
+        args = ["-p", prompt, "--output-format", "text", "--dangerously-skip-permissions"]
+        if resume_id:
+            args.extend(["--resume", resume_id])
+        elif session_id:
+            args.extend(["--session-id", session_id])
+        return args
 
     async def _execute_via_cli(self, agent_config: dict, task: str) -> str:
         """通过 claude CLI 执行任务，支持会话持久化"""
@@ -201,35 +237,36 @@ class ClaudeCodeBackend(BaseBackend):
         # 读取已有 session
         old_session_id, summary = self._get_session(agent_name)
 
-        # 构造 prompt 和 CLI 参数
-        prompt = task
-        cli_args = ["-p", prompt, "--output-format", "text", "--dangerously-skip-permissions"]
-
         if old_session_id:
-            # 接续已有会话
-            cli_args.extend(["--resume", old_session_id])
+            # 尝试接续已有会话
             logger.bind(tag=TAG).info(f"接续会话 {agent_name}: {old_session_id[:8]}...")
-        else:
-            # 新会话：注入旧摘要（如有）
-            new_session_id = str(uuid.uuid4())
-            if summary:
-                prompt = f"之前的对话摘要:\n{summary}\n\n当前任务:\n{task}"
-                cli_args = ["-p", prompt, "--output-format", "text", "--dangerously-skip-permissions"]
-            cli_args.extend(["--session-id", new_session_id])
-            logger.bind(tag=TAG).info(f"创建新会话 {agent_name}: {new_session_id[:8]}...")
+            cli_args = self._build_cli_args(task, resume_id=old_session_id)
+            code, result = await self._run_cli(cmd, cli_args, workspace, env, timeout)
 
-        # 执行
-        result = await self._run_cli(cmd, cli_args, workspace, env, timeout)
+            if code == 0:
+                self._save_session(agent_name, old_session_id)
+                return result
 
-        # 保存 session（用当前 CLI 参数中的 session id）
-        # 从 cli_args 中提取实际使用的 session id
-        if "--resume" in cli_args:
-            # resume 的情况下，session id 不变
-            self._save_session(agent_name, old_session_id)
+            # resume 失败（session 不存在/过期），清除旧记录，走新建流程
+            logger.bind(tag=TAG).warning(f"接续会话失败 (code={code})，清除旧 session 并创建新会话")
+            self._clear_session(agent_name)
+            old_session_id = None
+            summary = None
+
+        # 新建会话
+        new_session_id = str(uuid.uuid4())
+        prompt = task
+        if summary:
+            prompt = f"之前的对话摘要:\n{summary}\n\n当前任务:\n{task}"
+        cli_args = self._build_cli_args(prompt, session_id=new_session_id)
+        logger.bind(tag=TAG).info(f"创建新会话 {agent_name}: {new_session_id[:8]}...")
+
+        code, result = await self._run_cli(cmd, cli_args, workspace, env, timeout)
+
+        if code == 0:
+            self._save_session(agent_name, new_session_id)
         else:
-            # 新会话，提取 --session-id 的值
-            idx = cli_args.index("--session-id")
-            self._save_session(agent_name, cli_args[idx + 1])
+            logger.bind(tag=TAG).warning(f"新建会话失败 (code={code})，不保存 session")
 
         return result
 
@@ -244,8 +281,9 @@ class ClaudeCodeBackend(BaseBackend):
     async def check_health(self, agent_config: dict) -> dict:
         if not self._connected:
             return {"name": agent_config.get("name"), "status": "disconnected", "backend": "claude_code"}
-        return {"name": agent_config.get("name"), "status": "connected", "backend": "claude_code",
-                "tools_count": len(self.tools)}
+        cmd = shutil.which(self.config.get("command", "claude"))
+        status = "connected" if cmd else "cli_not_found"
+        return {"name": agent_config.get("name"), "status": status, "backend": "claude_code"}
 
     async def reset_session(self, agent_name: str) -> str:
         """重置 agent 会话：生成摘要 → 存 MySQL → 清除 Redis"""

@@ -112,7 +112,7 @@ async def test_dispatch_first(proxy):
     try:
         result = await asyncio.wait_for(
             asyncio.get_event_loop().run_in_executor(
-                None, lambda: dispatch_to_agent(conn, "ceo", "热力学定律是什么")
+                None, lambda: dispatch_to_agent(conn, "ceo", "把代码提交并推送到gitea local main分支")
             ),
             timeout=310,
         )
@@ -142,7 +142,7 @@ async def test_dispatch_first(proxy):
 # ── 测试 6: 接续会话（--resume）──
 async def test_dispatch_continue(proxy):
     print("\n" + "=" * 50)
-    print('测试 6: 接续会话 "刚才你说了什么"')
+    print('测试 6: 接续会话 "我问了哪些定律"')
     print("=" * 50)
 
     # 先检查 Redis 中是否有 session

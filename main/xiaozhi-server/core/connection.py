@@ -1248,7 +1248,7 @@ class ConnectionHandler:
                 tool_call_timeout = int(self.config.get("tool_call_timeout", 30))
                 # 部分工具需要更长的超时时间（如 agent 调度）
                 _tool_timeout_overrides = {
-                    "dispatch_to_agent": 120,
+                    "dispatch_to_agent": 310,
                 }
                 # 等待协程结束（实际等待时长为最慢的那个）
                 tool_results = []
