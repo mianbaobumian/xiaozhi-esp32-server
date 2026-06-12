@@ -50,10 +50,10 @@ class SchedulerManager:
     def _fire_reminder(self, job_id: str, message: str, device_id: str):
         try:
             sql = """
-                INSERT INTO broadcast_queue (source, priority, content, status, created_at)
+                INSERT INTO broadcast_queue (source, priority, content, status, created_time)
                 VALUES ('scheduler', 'normal', %s, 'pending', %s)
             """
-            execute_update(sql, (message, datetime.now()))
+            execute_update(sql, (message, datetime.now().date()))
             redis_client = get_redis_client()
             redis_client.publish("broadcast:notify", json.dumps({"source": "scheduler"}))
             from core.providers.scheduler.reminder_store import ReminderStore
