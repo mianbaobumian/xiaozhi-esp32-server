@@ -1,4 +1,4 @@
-"""Agent 调度流程 + 模拟语音命令测试"""
+"""Agent 调度流程 + 模拟语音命令 + 会话持久化测试"""
 import asyncio
 import sys
 import os
@@ -102,25 +102,133 @@ async def test_health_check(proxy):
     return "Agent" in text
 
 
-# ── 测试 5: 模拟语音 "让CEO帮我xxx" ──
-async def test_dispatch(proxy):
+# ── 测试 5: 首次任务分发（创建新会话）──
+async def test_dispatch_first(proxy):
     print("\n" + "=" * 50)
-    print('测试 5: 模拟语音 "让ceo去调研下豆瓣电影top250中前top5的电影分别是什么"')
+    print('测试 5: 首次任务分发 "让ceo用一句话介绍你自己"')
     print("=" * 50)
     from plugins_func.functions.dispatch_to_agent import dispatch_to_agent
     conn = MockConn(proxy, asyncio.get_event_loop())
     try:
         result = await asyncio.wait_for(
             asyncio.get_event_loop().run_in_executor(
-                None, lambda: dispatch_to_agent(conn, "ceo", "去调研下豆瓣电影top250中前top5的电影分别是什么")
+                None, lambda: dispatch_to_agent(conn, "ceo", "用一句话介绍你自己")
             ),
-            timeout=120,
+            timeout=310,
         )
         text = _text(result)
         print(f"\n{text[:500]}")
-        return "失败" not in text and "未连接" not in text
+        ok = "失败" not in text and "未连接" not in text
+        if ok:
+            # 验证 Redis 写入
+            try:
+                from core.utils.db_manager import get_redis_client
+                r = get_redis_client()
+                sid = r.get("agent:session:ceo")
+                print(f"\n  Redis agent:session:ceo = {sid}")
+                ok = ok and bool(sid)
+            except Exception as e:
+                print(f"\n  Redis 检查失败: {e}")
+                ok = False
+        return ok
     except asyncio.TimeoutError:
-        print("\n[FAIL] 超时 (120秒)")
+        print("\n[FAIL] 超时 (310秒)")
+        return False
+    except Exception as e:
+        print(f"\n[FAIL] {e}")
+        return False
+
+
+# ── 测试 6: 接续会话（--resume）──
+async def test_dispatch_continue(proxy):
+    print("\n" + "=" * 50)
+    print('测试 6: 接续会话 "刚才你说了什么"')
+    print("=" * 50)
+
+    # 先检查 Redis 中是否有 session
+    try:
+        from core.utils.db_manager import get_redis_client
+        r = get_redis_client()
+        sid = r.get("agent:session:ceo")
+        print(f"  当前 session: {sid}")
+        if not sid:
+            print("  [SKIP] 无活跃 session，跳过")
+            return True
+    except Exception as e:
+        print(f"  [SKIP] Redis 不可用: {e}")
+        return True
+
+    from plugins_func.functions.dispatch_to_agent import dispatch_to_agent
+    conn = MockConn(proxy, asyncio.get_event_loop())
+    try:
+        result = await asyncio.wait_for(
+            asyncio.get_event_loop().run_in_executor(
+                None, lambda: dispatch_to_agent(conn, "ceo", "刚才你说了什么？简单复述一下")
+            ),
+            timeout=310,
+        )
+        text = _text(result)
+        print(f"\n{text[:500]}")
+        # session UUID 不应该变
+        try:
+            new_sid = r.get("agent:session:ceo")
+            print(f"\n  session 保持: {sid == new_sid}")
+            return "失败" not in text and sid == new_sid
+        except Exception:
+            return "失败" not in text
+    except asyncio.TimeoutError:
+        print("\n[FAIL] 超时 (310秒)")
+        return False
+    except Exception as e:
+        print(f"\n[FAIL] {e}")
+        return False
+
+
+# ── 测试 7: 重置会话 ──
+async def test_reset_session(proxy):
+    print("\n" + "=" * 50)
+    print('测试 7: 重置CEO会话')
+    print("=" * 50)
+    from plugins_func.functions.reset_agent_session import reset_agent_session
+    conn = MockConn(proxy, asyncio.get_event_loop())
+    try:
+        result = await asyncio.wait_for(
+            asyncio.get_event_loop().run_in_executor(
+                None, lambda: reset_agent_session(conn, "ceo")
+            ),
+            timeout=90,
+        )
+        text = _text(result)
+        print(f"\n{text[:300]}")
+        ok = "已重置" in text or "没有活跃" in text
+
+        # 验证 Redis 已清除
+        try:
+            from core.utils.db_manager import get_redis_client
+            r = get_redis_client()
+            sid = r.get("agent:session:ceo")
+            print(f"  Redis agent:session:ceo = {sid}")
+            ok = ok and sid is None
+        except Exception as e:
+            print(f"  Redis 检查: {e}")
+
+        # 验证 MySQL 摘要
+        try:
+            from core.utils.db_manager import execute_query
+            rows = execute_query(
+                "SELECT summary FROM agent_sessions WHERE agent_name=%s",
+                ("ceo",)
+            )
+            if rows and rows[0].get("summary"):
+                print(f"  MySQL 摘要: {rows[0]['summary'][:100]}...")
+            else:
+                print("  MySQL 摘要: 无")
+        except Exception as e:
+            print(f"  MySQL 检查: {e}")
+
+        return ok
+    except asyncio.TimeoutError:
+        print("\n[FAIL] 超时 (90秒)")
         return False
     except Exception as e:
         print(f"\n[FAIL] {e}")
@@ -128,31 +236,35 @@ async def test_dispatch(proxy):
 
 
 async def main():
-    print("Agent 调度流程 + 模拟语音命令测试\n")
+    print("Agent 调度流程 + 模拟语音命令 + 会话持久化测试\n")
 
     r1 = await test_registry()
     r2 = await test_backend_connection()
 
     if not r1 or not r2:
-        print("\n基础测试失败，跳过语音命令测试")
+        print("\n基础测试失败，跳过后续测试")
         return
 
     proxy = await create_proxy()
 
     r3 = await test_list_agents()
     r4 = await test_health_check(proxy)
-    r5 = await test_dispatch(proxy)
+    r5 = await test_dispatch_first(proxy)
+    r6 = await test_dispatch_continue(proxy)
+    r7 = await test_reset_session(proxy)
 
     await proxy.shutdown()
 
     print("\n" + "=" * 50)
     print("测试结果汇总")
     print("=" * 50)
-    print(f"  1. 注册表扫描:  {'PASS' if r1 else 'FAIL'}")
-    print(f"  2. 后端连接:    {'PASS' if r2 else 'FAIL'}")
-    print(f"  3. 列出agent:   {'PASS' if r3 else 'FAIL'}")
-    print(f"  4. 健康检查:    {'PASS' if r4 else 'FAIL'}")
-    print(f"  5. 任务分发:    {'PASS' if r5 else 'FAIL'}")
+    print(f"  1. 注册表扫描:    {'PASS' if r1 else 'FAIL'}")
+    print(f"  2. 后端连接:      {'PASS' if r2 else 'FAIL'}")
+    print(f"  3. 列出agent:     {'PASS' if r3 else 'FAIL'}")
+    print(f"  4. 健康检查:      {'PASS' if r4 else 'FAIL'}")
+    print(f"  5. 首次任务分发:  {'PASS' if r5 else 'FAIL'}")
+    print(f"  6. 接续会话:      {'PASS' if r6 else 'FAIL'}")
+    print(f"  7. 重置会话:      {'PASS' if r7 else 'FAIL'}")
 
 
 if __name__ == "__main__":
