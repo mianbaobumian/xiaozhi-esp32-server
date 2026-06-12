@@ -8,7 +8,9 @@ CREATE TABLE IF NOT EXISTS reminders (
     trigger_time VARCHAR(64),
     message TEXT NOT NULL,
     status VARCHAR(16) DEFAULT 'active',
-    created_at DATETIME NOT NULL,
+    created_time DATE NOT NULL,
+    updated_time DATE DEFAULT NULL,
+    is_deleted TINYINT(1) DEFAULT 0,
     fired_at DATETIME,
     INDEX idx_device_status (device_id, status)
 );
@@ -20,7 +22,9 @@ CREATE TABLE IF NOT EXISTS broadcast_queue (
     content TEXT NOT NULL,
     status VARCHAR(16) DEFAULT 'pending',
     retry_count INT DEFAULT 0,
-    created_at DATETIME NOT NULL,
+    created_time DATE NOT NULL,
+    updated_time DATE DEFAULT NULL,
+    is_deleted TINYINT(1) DEFAULT 0,
     delivered_at DATETIME,
     INDEX idx_status_priority (status, priority)
 );
@@ -31,6 +35,8 @@ CREATE TABLE IF NOT EXISTS agent_memory (
     role VARCHAR(16) NOT NULL,
     content TEXT NOT NULL,
     summary TEXT,
-    created_at DATETIME NOT NULL,
-    INDEX idx_agent_time (agent_name, created_at)
+    created_time DATE NOT NULL,
+    updated_time DATE DEFAULT NULL,
+    is_deleted TINYINT(1) DEFAULT 0,
+    INDEX idx_agent_time (agent_name, created_time)
 );
