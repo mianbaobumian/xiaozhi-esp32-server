@@ -1,5 +1,6 @@
 """服务端插件工具执行器"""
 
+import asyncio
 from typing import Dict, Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -30,7 +31,11 @@ class ServerPluginExecutor(ToolExecutor):
             if hasattr(func_item, "type"):
                 func_type = func_item.type
                 if func_type.code in [4, 5]:  # SYSTEM_CTL, IOT_CTL (需要conn参数)
-                    result = func_item.func(conn, **arguments)
+                    # 同步函数可能阻塞（如 dispatch_to_agent），放线程池执行
+                    loop = asyncio.get_running_loop()
+                    result = await loop.run_in_executor(
+                        None, lambda: func_item.func(conn, **arguments)
+                    )
                 elif func_type.code == 2:  # WAIT
                     result = func_item.func(**arguments)
                 elif func_type.code == 3:  # CHANGE_SYS_PROMPT
