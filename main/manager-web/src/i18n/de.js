@@ -352,6 +352,8 @@ export default {
 
   // Replacement word management page related
   'replacementWordManagement.pageTitle': 'Ersetzungswortverwaltung',
+  'replacementWordManagement.searchPlaceholder': 'Bitte geben Sie den Dateinamen zur Suche ein',
+  'replacementWordManagement.search': 'Suchen',
   'replacementWordManagement.fileName': 'Dateiname',
   'replacementWordManagement.replacementWordCount': 'Anzahl der Ersetzungswörter',
   'replacementWordManagement.replacementWordContent': 'Ersetzungswortinhalt',
@@ -591,6 +593,7 @@ export default {
 
   // Dictionary management page text
   'dictManagement.pageTitle': 'Wörterbuchverwaltung',
+  'dictManagement.dictTypeCategory': 'Wörterbuchkategorie',
   'dictManagement.searchPlaceholder': 'Bitte Wörterbuchwert-Label zur Suche eingeben',
   'dictManagement.search': 'Suchen',
   'dictManagement.dictTypeName': 'WDT-Name',
@@ -645,6 +648,8 @@ export default {
   'user.disable': 'Deaktivieren',
   'user.delete': 'Löschen',
   'user.selectUsersFirst': 'Bitte wählen Sie zuerst Benutzer zum Löschen aus',
+  'user.selectUsersToDisable': 'Bitte wählen Sie Benutzer zum Deaktivieren aus',
+  'user.selectUsersToEnable': 'Bitte wählen Sie Benutzer zum Aktivieren aus',
   'user.confirmDeleteSelected': 'Sind Sie sicher, dass Sie {count} ausgewählte Benutzer löschen möchten?',
   'user.deleting': 'Löscht...',
   'user.deleteSuccess': 'Erfolgreich {count} Benutzer gelöscht',
@@ -704,6 +709,9 @@ export default {
   'common.cancel': 'Abbrechen',
   'common.sensitive': 'Sensibel',
   'common.loading': 'Lädt',
+  'common.copySuccess': 'Erfolgreich kopiert',
+  'common.copyFailed': 'Kopieren fehlgeschlagen',
+  'common.copyAddress': 'Adresse kopieren',
 
   // Language switch
   'language.zhCN': '中文简体',
@@ -1116,6 +1124,8 @@ export default {
   'agentTemplateManagement.action': 'Aktion',
   'agentTemplateManagement.createTemplate': 'Vorlage erstellen',
   'templateQuickConfig.newTemplate': 'Neue Vorlage',
+  'templateQuickConfig.editTemplate': 'Vorlage bearbeiten',
+  'templateQuickConfig.addTemplate': 'Vorlage hinzufügen',
   'agentTemplateManagement.editTemplate': 'Vorlage bearbeiten',
   'agentTemplateManagement.deleteTemplate': 'Vorlage löschen',
   'agentTemplateManagement.deleteSuccess': 'Vorlage erfolgreich gelöscht',
@@ -1195,6 +1205,8 @@ export default {
   'voiceClone.operationClosed': 'Popup geschlossen',
   'voiceClone.cloneSuccess': 'Klonen erfolgreich',
   'voiceClone.cloneFailed': 'Klonen fehlgeschlagen',
+  'voiceClone.cloneErrorTip': 'Klonen fehlgeschlagen, bitte bewegen Sie die Maus über die Fehlermeldung für Details',
+  'voiceClone.apiError': 'API-Aufruf Fehler',
   'voiceClone.confirmClone': 'Sind Sie sicher, dass Sie diese Stimme klonen möchten?',
   'voiceClone.onlySuccessCanClone': 'Nur erfolgreich trainierte Stimmen können geklont werden',
   'common.insufficient': 'Unzureichend',
@@ -1212,6 +1224,7 @@ export default {
   'voiceClone.training': 'Training',
   'voiceClone.trainSuccess': 'Training erfolgreich',
   'voiceClone.trainFailed': 'Training fehlgeschlagen',
+  'voiceClone.trainFailedWithError': 'Training fehlgeschlagen: {error}',
   'voiceClone.itemsPerPage': '{items} Einträge/Seite',
   'voiceClone.firstPage': 'Erste Seite',
   'voiceClone.prevPage': 'Vorherige Seite',
@@ -1420,8 +1433,6 @@ export default {
   'featureManagement.groupDescription.featureManagement': 'Aktivierungsstatus der Kernfunktionsmodule steuern',
   'featureManagement.groupDescription.voiceManagement': 'Konfigurieren, welche Funktionen für Agenten (KI-Assistenten) sichtbar und verfügbar sind',
   'featureManagement.moduleCount': '{count} Module insgesamt',
-  'featureManagement.enabled': 'Aktiviert',
-  'featureManagement.disabled': 'Deaktiviert',
 
   // Feature names and descriptions
   'feature.voiceprintRecognition.name': 'Stimmerkennung',
@@ -1442,7 +1453,6 @@ export default {
   // Adressbuch Verwaltungsseite
   'addressBookManagement.title': 'Adressbuchverwaltung',
   'addressBookManagement.searchPlaceholder': 'Gerätename oder MAC-Adresse suchen',
-  'addressBookManagement.search': 'Suchen',
   'addressBookManagement.selectAgent': 'Bitte Agent auswählen',
   'addressBookManagement.name': 'Adressbuchname',
   'addressBookManagement.description': 'Adressbuchbeschreibung',

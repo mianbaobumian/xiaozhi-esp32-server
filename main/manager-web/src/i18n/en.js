@@ -352,6 +352,8 @@ export default {
 
   // Replacement word management page related
   'replacementWordManagement.pageTitle': 'Replacement Word Management',
+  'replacementWordManagement.searchPlaceholder': 'Please enter file name to search',
+  'replacementWordManagement.search': 'Search',
   'replacementWordManagement.fileName': 'File Name',
   'replacementWordManagement.replacementWordCount': 'Replacement Word Count',
   'replacementWordManagement.replacementWordContent': 'Replacement Word Content',
@@ -591,6 +593,7 @@ export default {
 
   // Dictionary management page text
   'dictManagement.pageTitle': 'Dictionary Management',
+  'dictManagement.dictTypeCategory': 'Dict Category',
   'dictManagement.searchPlaceholder': 'Please enter dict value label to search',
   'dictManagement.search': 'Search',
   'dictManagement.dictTypeName': 'Dict Type Name',
@@ -645,6 +648,8 @@ export default {
   'user.disable': 'Disable',
   'user.delete': 'Delete',
   'user.selectUsersFirst': 'Please select users to delete first',
+  'user.selectUsersToDisable': 'Please select users to disable',
+  'user.selectUsersToEnable': 'Please select users to enable',
   'user.confirmDeleteSelected': 'Are you sure you want to delete {count} selected users?',
   'user.deleting': 'Deleting...',
   'user.deleteSuccess': 'Successfully deleted {count} users',
@@ -704,6 +709,9 @@ export default {
   'common.cancel': 'Cancel',
   'common.sensitive': 'Sensitive',
   'common.loading': 'Loading',
+  'common.copySuccess': 'Copy successful',
+  'common.copyFailed': 'Copy failed',
+  'common.copyAddress': 'Copy address',
 
   // Language switch
   'language.zhCN': '中文简体',
@@ -1150,6 +1158,8 @@ export default {
   'templateQuickConfig.cancel': 'Cancel',
   'templateQuickConfig.templateNotFound': 'Template not found',
   'templateQuickConfig.newTemplate': 'New Template',
+  'templateQuickConfig.editTemplate': 'Edit Template',
+  'templateQuickConfig.addTemplate': 'Add Template',
   'warning': 'Warning',
   'info': 'Info',
   'common.networkError': 'Network request failed',
@@ -1195,6 +1205,8 @@ export default {
   'voiceClone.operationClosed': 'Popup closed',
   'voiceClone.cloneSuccess': 'Clone successful',
   'voiceClone.cloneFailed': 'Clone failed',
+  'voiceClone.cloneErrorTip': 'Clone failed, please hover over the error tip to view error details',
+  'voiceClone.apiError': 'API call error',
   'voiceClone.confirmClone': 'Are you sure you want to clone this voice?',
   'voiceClone.onlySuccessCanClone': 'Only successfully trained voices can be cloned',
   'common.insufficient': 'Insufficient',
@@ -1212,6 +1224,7 @@ export default {
   'voiceClone.training': 'Training',
   'voiceClone.trainSuccess': 'Training successful',
   'voiceClone.trainFailed': 'Training failed',
+  'voiceClone.trainFailedWithError': 'Training failed: {error}',
   'voiceClone.itemsPerPage': '{items} items/page',
   'voiceClone.firstPage': 'First Page',
   'voiceClone.prevPage': 'Previous Page',
@@ -1420,8 +1433,6 @@ export default {
   'featureManagement.groupDescription.featureManagement': 'Control the enable status of core feature modules',
   'featureManagement.groupDescription.voiceManagement': 'Configure which features are visible and available to agents (AI assistants)',
   'featureManagement.moduleCount': '{count} modules in total',
-  'featureManagement.enabled': 'Enabled',
-  'featureManagement.disabled': 'Disabled',
 
   // Feature names and descriptions
   'feature.voiceprintRecognition.name': 'Voiceprint Recognition',
@@ -1442,7 +1453,6 @@ export default {
   // Address Book Management page
   'addressBookManagement.title': 'Address Book Management',
   'addressBookManagement.searchPlaceholder': 'Search device name or MAC address',
-  'addressBookManagement.search': 'Search',
   'addressBookManagement.selectAgent': 'Please select agent',
   'addressBookManagement.name': 'Address Book Name',
   'addressBookManagement.description': 'Address Book Description',
