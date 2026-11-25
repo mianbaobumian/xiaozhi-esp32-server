@@ -101,6 +101,12 @@ class ConnectionHandler:
 
         self.read_config_from_api = self.config.get("read_config_from_api", False)
 
+        # 新模块引用
+        self.scheduler_manager = None
+        self.broadcast_manager = None
+        self.agent_registry = None
+        self.agent_proxy = None
+
         self.websocket: websockets.ServerConnection | None = None
         self.headers = None
         self.device_id = None
@@ -653,6 +659,40 @@ class ConnectionHandler:
             """注入工具调用few-shot示例（仅function_call模式）"""
             self._inject_tool_call_fewshot()
 
+            # 初始化 CEO Agent 相关模块
+            try:
+                from config.config_loader import load_backends_config
+                backends_config = load_backends_config()
+                workspace_path = backends_config.get("workspace_path", "./workspace")
+
+                # Agent Registry
+                from core.providers.agent_registry.registry import AgentRegistry
+                from core.providers.agent_registry.agent_proxy import AgentProxy
+                self.agent_registry = AgentRegistry(workspace_path)
+                self.agent_registry.scan_workspace()
+                self.agent_proxy = AgentProxy(self.agent_registry, backends_config)
+                # 初始化后端连接
+                asyncio.run_coroutine_threadsafe(
+                    self.agent_proxy.initialize_backends(), self.loop
+                )
+
+                # Scheduler
+                from core.providers.scheduler.scheduler_manager import SchedulerManager
+                from core.providers.scheduler.reminder_store import ReminderStore
+                self.scheduler_manager = SchedulerManager()
+                reminder_store = ReminderStore()
+                active_reminders = reminder_store.get_all_active()
+                self.scheduler_manager.restore_jobs(active_reminders)
+
+                # Broadcast
+                from core.providers.broadcast.broadcast_manager import BroadcastManager
+                self.broadcast_manager = BroadcastManager(self)
+                self.broadcast_manager.start()
+
+                self.logger.bind(tag=TAG).info("CEO Agent 模块初始化完成")
+            except Exception as e:
+                self.logger.bind(tag=TAG).error(f"CEO Agent 模块初始化失败: {e}")
+
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"实例化组件失败: {e}")
 
@@ -874,6 +914,13 @@ class ConnectionHandler:
             ]["Memory"]
         if private_config.get("Intent", None) is not None:
             init_intent = True
+            # 保存本地配置中的 functions（在覆盖之前）
+            # 从 self.config["Intent"] 中获取所有 functions
+            saved_local_functions = []
+            for intent_config in self.config.get("Intent", {}).values():
+                if isinstance(intent_config, dict) and "functions" in intent_config:
+                    saved_local_functions.extend(intent_config["functions"])
+
             self.config["Intent"] = private_config["Intent"]
             model_intent = private_config.get("selected_module", {}).get("Intent", {})
             self.config["selected_module"]["Intent"] = model_intent
@@ -900,9 +947,13 @@ class ConnectionHandler:
                         expanded_functions.extend(module_func_map[plugin_key])
                     else:
                         expanded_functions.append(plugin_key)
+                # 合并本地配置中的 agent 函数（API 不返回），去重后写入
+                all_functions = list(
+                    dict.fromkeys(saved_local_functions + expanded_functions)
+                )
                 self.config["Intent"][self.config["selected_module"]["Intent"]][
                     "functions"
-                ] = expanded_functions
+                ] = all_functions
         if private_config.get("prompt", None) is not None:
             self.config["prompt"] = private_config["prompt"]
         # 获取声纹信息
@@ -1360,12 +1411,17 @@ class ConnectionHandler:
 
                 # 工具调用超时时间，可配置，默认30秒
                 tool_call_timeout = int(self.config.get("tool_call_timeout", 30))
+                # 部分工具需要更长的超时时间（如 agent 调度）
+                _tool_timeout_overrides = {
+                    "dispatch_to_agent": 310,
+                }
                 # 等待协程结束（实际等待时长为最慢的那个）
                 tool_results = []
 
                 for future, tool_call_data, tool_input in futures_with_data:
+                    timeout = _tool_timeout_overrides.get(tool_call_data['name'], tool_call_timeout)
                     try:
-                        result = future.result(timeout=tool_call_timeout)
+                        result = future.result(timeout=timeout)
                         tool_results.append((result, tool_call_data))
                         # 使用公共方法上报工具调用结果
                         enqueue_tool_report(self, tool_call_data['name'], tool_input, str(result.result) if result.result else None, report_tool_call=False)
@@ -1608,6 +1664,16 @@ class ConnectionHandler:
                     self.logger.bind(tag=TAG).error(
                         f"清理工具处理器时出错: {cleanup_error}"
                     )
+
+            # 关闭后端连接
+            if self.agent_proxy:
+                future = asyncio.run_coroutine_threadsafe(
+                    self.agent_proxy.shutdown(), self.loop
+                )
+                try:
+                    future.result(timeout=5)
+                except Exception:
+                    pass
 
             # 触发停止事件
             if self.stop_event:

@@ -1,0 +1,6 @@
+name: assistant
+description: 个人助理，网上找资料、GitHub 信息对比筛选
+backend: openclaw
+backend_id: ""
+model: null
+enabled: true

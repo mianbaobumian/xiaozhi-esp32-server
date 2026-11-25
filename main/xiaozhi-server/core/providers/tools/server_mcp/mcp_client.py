@@ -186,6 +186,8 @@ class ServerMCPClient:
                         args=self.config.get("args", []),
                         env=env,
                     )
+
+                    # 子进程 stderr 继承父进程 stderr（终端输出）
                     stdio_r, stdio_w = await stack.enter_async_context(
                         stdio_client(params)
                     )

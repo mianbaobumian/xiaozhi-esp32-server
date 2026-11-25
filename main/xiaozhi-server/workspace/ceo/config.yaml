@@ -1,0 +1,11 @@
+name: CEO
+description: 私人助手，决策中心
+backend: claude_code
+model: mimo-v2.5-pro
+context_window: 1000000
+compression_threshold: 0.5
+enabled: true
+schedule:
+  morning_briefing: "08:00"
+  evening_summary: "22:00"
+  health_check_interval: 3600

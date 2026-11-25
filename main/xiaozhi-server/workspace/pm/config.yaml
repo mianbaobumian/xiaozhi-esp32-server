@@ -1,0 +1,5 @@
+name: Claude-PM
+description: 项目级管理，Claude 子代理执行，双写 Gitea + Multica 看板
+backend: claude_code
+model: mimo-v2.5-pro
+enabled: true
