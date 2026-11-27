@@ -536,6 +536,19 @@ ASR:
     base_url: https://api.groq.com/openai/v1/audio/transcriptions
     model_name: whisper-large-v3-turbo
     output_dir: tmp/
+  MiMoASR:
+    # 小米 MiMo-V2.5-ASR 语音识别，文档：https://platform.xiaomimimo.com/docs/zh-CN/usage-guide/speech-recognition-v2.5
+    # 配置说明：
+    # 1. 接口是 OpenAI Chat Completions 风格，音频以 base64 放进 messages，不走 /v1/audio/transcriptions
+    # 2. 需要在 https://platform.xiaomimimo.com 获取 API 密钥
+    # 3. base_url 填到 /v1 即可；Token Plan 用户改成 https://token-plan-cn.xiaomimimo.com/v1
+    # 4. language：auto 自动检测 / zh 中文 / en 英文，确定语种时手动指定更准
+    type: mimo
+    api_key: 你的MiMo API密钥
+    base_url: https://api.xiaomimimo.com/v1
+    model_name: mimo-v2.5-asr
+    language: auto
+    output_dir: tmp/
   VoskASR:
     # 官方网站：https://alphacephei.com/vosk/
     # 配置说明：
